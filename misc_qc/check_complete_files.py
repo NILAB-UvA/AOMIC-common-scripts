@@ -102,25 +102,12 @@ def main(bids_dir, spaces=None):
                         if not op.isfile(f):
                             print(f"WARNING: {op.basename(dwi)} exists, but {op.basename(f)} doesn't.")
 
-                dti_fa = op.join(bids_dir, 'derivatives', 'dti_fa', sub_base)    
+                dti_fa = op.join(bids_dir, 'derivatives', 'dwipreproc', sub_base)    
                 if op.isdir(dti_fa):
-                    for space in ('FSLHCP1065', 'native'):
-                        for mod in ('FA', 'MD', 'V1', 'desc-brain_mask'):
-                            if mod == 'desc-brain_mask' and space != 'native':
-                                continue
-                            f = op.join(dti_fa, f'{sub_base}_space-{space}_{mod}.nii.gz')
-                            if not op.isfile(f):
-                                f2 = op.join(dti_fa, f'{sub_base}_space-{space}_desc-average_{mod}.nii.gz')
-                                if not op.isfile(f2):
-                                    print(f"WARNING: {f} seems to be missing.")
-
-                    if op.join(bids_dir, 'derivatives', 'tbss'):
-                        # Crude check
-                        f = op.join(bids_dir, 'derivatives', 'tbss', 'FA', f'{sub_base}_space-native_FA_FA_to_target.nii.gz')
+                    for mod in ('desc-brain_mask', 'model-DTI_desc-WLS_FA', 'model-DTI_desc-WLS_EVECS'):
+                        f = op.join(dti_fa, 'dwi', f'{sub_base}_{mod}.nii.gz')
                         if not op.isfile(f):
-                            f2 = op.join(bids_dir, 'derivatives', 'tbss', 'FA', f'{sub_base}_space-native_desc-average_FA_FA_to_target.nii.gz')
-                            if not op.isfile(f2):
-                                print(f"WARNING: {f} seems to be missing.")
+                            print(f"WARNING: {f} seems to be missing.")
 
         error_dir = op.join(bids_dir, 'derivatives', 'fmriprep', sub_base, 'log')
         if op.isdir(error_dir):
@@ -210,7 +197,7 @@ def main(bids_dir, spaces=None):
                         print(f"WARNING: somthing wrong with columns of {op.basename(ricor)}.")
 
     #### CHECK WHETHER DATA EXISTS IN DERIVATIVES THAT DOES NOT EXIST IN BIDS ####
-    for deriv in ('freesurfer', 'fmriprep', 'physiology', 'vbm', 'dti_fa', 'mriqc'):
+    for deriv in ('freesurfer', 'fmriprep', 'physiology', 'vbm', 'dti_fa', 'mriqc', 'dwipreproc'):
         deriv_dirs = sorted(glob(op.join(bids_dir, 'derivatives', deriv, 'sub-*')))
         deriv_subs = [d for d in deriv_dirs if op.isdir(d)]
         for sub in deriv_subs:
@@ -230,6 +217,13 @@ def main(bids_dir, spaces=None):
                         bids_f = op.join(bids_dir, sub_base, 'func', f + '_physio.tsv.gz')
                         if not op.isfile(bids_f):
                             print(f"WARNING: {f} exists in Physio deriv, but not in BIDS, {bids_f}.")
+                elif deriv == 'dwipreproc':
+                    files = [op.basename(s).split('_')[0] for s in glob(op.join(sub, 'dwi', '*_FA.nii.gz'))]
+                    for f in files:
+                        bids_f = op.join(bids_dir, sub_base, 'dwi', f'{f}_dwi.nii.gz')
+                        if not op.isfile(bids_f):
+                            print(f"WARNING: {f} exists in dwipreproc, but not in BIDS, {bids_f}.")
+
                 elif deriv == 'mriqc':
                     files = [op.basename(s).split('_bold.html')[0] for s in glob(sub + '*_bold.html')]
                     for f in files:
