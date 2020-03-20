@@ -16,7 +16,7 @@ def _parallel_tsnr(f, out_dir, space='MNI152NLin2009cAsym_desc-preproc_bold.nii.
     sub_out = op.join(out_dir, base_name.split('_')[0], 'tsnr')
 
     if not op.isdir(sub_out):
-        os.makedirs(sub_out)
+        os.makedirs(sub_out, exist_ok=True)
 
     if 'fsaverage' in space:
         gii = nib.load(f)
@@ -32,11 +32,12 @@ def _parallel_tsnr(f, out_dir, space='MNI152NLin2009cAsym_desc-preproc_bold.nii.
         tmp[np.isnan(tmp)] = 0
 
     if 'fsaverage' in space:
-        for mod, metric in [('mean', mean_), ('sd', sd_), ('tsnr', tsnr_)]:
-            f_out = op.join(sub_out, base_name + f'{mod}.npy')
+        hemi = f.split('hemi-')[1].split('.')[0]
+        for mod, metric in [('mean', mean_), ('std', sd_), ('tsnr', tsnr_)]:
+            f_out = op.join(sub_out, base_name + f'hemi-{hemi}_{mod}.npy')
             np.save(f_out, metric)
     else:
-        for mod, metric in [('mean', mean_), ('sd', sd_), ('tsnr', tsnr_)]:
+        for mod, metric in [('mean', mean_), ('std', sd_), ('tsnr', tsnr_)]:
             img_ = masking.unmask(metric, mask)
             f_out = op.join(sub_out, base_name + f'{mod}.nii.gz')
             img_.to_filename(f_out)
@@ -75,15 +76,16 @@ def main(bids_dir, out_dir, level, n_jobs):
         os.makedirs(out_dir)
 
     fmriprep_dir = op.join(bids_dir, 'derivatives', 'fmriprep')
+    print(f"INFO: using data from {fmriprep_dir}")
+    print(f"INFO: storing tsnr data in {out_dir}")
     if level == 'participant':
-        for space in ('MNI152NLin2009cAsym_desc-preproc_bold.nii.gz', 'fsaverage5_hemi-L.func.gii', 'fsaverage5_hemi-R.func.gii'):
+        for space in ('fsaverage5_hemi-L.func.gii', 'fsaverage5_hemi-R.func.gii', 'MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'):
             print(f"INFO: computing TSNR for space {space.split('_')[0]}")
             funcs = sorted(glob(op.join(fmriprep_dir, 'sub-*', 'func', f'*space-{space}')))
             Parallel(n_jobs=n_jobs)(delayed(_parallel_tsnr)(f, out_dir, space) for f in tqdm(funcs))
     elif level == 'group':
-        for space in ('MNI152NLin2009cAsym', 'fsaverage5_hemi-L', 'fsaverage5_hemi-R'):
+        for space in ('fsaverage5_hemi-L', 'fsaverage5_hemi-R', 'MNI152NLin2009cAsym'):
             for mod in ['mean', 'sd', 'tsnr']:
-                print(op.join(out_dir, 'sub-*', 'tsnr', f'*space-{space}*{mod}'))
                 files = sorted(glob(op.join(out_dir, 'sub-*', 'tsnr', f'*space-{space}*{mod}*')))
                 tasks = np.unique([f.split('task-')[1].split('_')[0] for f in files])
                 for task in tasks:
