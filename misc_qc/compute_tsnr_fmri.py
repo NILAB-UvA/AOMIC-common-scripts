@@ -8,6 +8,10 @@ from tqdm import tqdm
 from nilearn import masking, image
 from joblib import Parallel, delayed
 
+# I know, I know, bad practice
+import warnings
+warnings.filterwarnings("ignore")
+
 
 def _parallel_tsnr(f, out_dir, space='MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'):
     """ Computes TSNR for a surface (gifti) or volume (nifti) file with a 
@@ -85,7 +89,7 @@ def main(bids_dir, out_dir, level, n_jobs):
             Parallel(n_jobs=n_jobs)(delayed(_parallel_tsnr)(f, out_dir, space) for f in tqdm(funcs))
     elif level == 'group':
         for space in ('fsaverage5_hemi-L', 'fsaverage5_hemi-R', 'MNI152NLin2009cAsym'):
-            for mod in ['mean', 'sd', 'tsnr']:
+            for mod in ['mean', 'std', 'tsnr']:
                 files = sorted(glob(op.join(out_dir, 'sub-*', 'tsnr', f'*space-{space}*{mod}*')))
                 tasks = np.unique([f.split('task-')[1].split('_')[0] for f in files])
                 for task in tasks:
