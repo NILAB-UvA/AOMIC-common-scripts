@@ -10,6 +10,8 @@ function check_and_copy {
     # new directory for template creation
     dwi=$1
     sub_out=$2
+    sub_base=$3
+
     bval=${dwi/nii.gz/bval}
     if [ ! -f ${bval} ]; then
         echo "ERROR: did not find ${bval}."
@@ -23,7 +25,14 @@ function check_and_copy {
 
     # Do actual copying    
     for f in ${dwi} ${bval} ${bvec}; do
+	f_base=$(basename ${f})
+	ext="${f_base#*.}"
         cp ${f} ${sub_out}
+	if [[ ${sub_out}/$(basename $f) == *"run"* ]]; then
+	    new=${sub_out}/${sub_base}_dwi.${ext}
+	    echo "Renaming ${sub_out}/${f_base} to ${new}"
+	    mv ${sub_out}/$(basename ${f}) ${new}
+	fi 
     done
 }
 
@@ -79,7 +88,7 @@ for sub_dir in ${sub_dirs[@]}; do
     sub_base=$(basename ${sub_dir})
     sub_out=${out_dir}/${sub_base}/dwi
 
-    if [ -f ${sub_out}/${sub_base}_desc-dti_FA.nii.gz ]; then
+    if [ -f ${sub_out}/${sub_base}_model-DTI_desc-WLS_FA.nii.gz ]; then
     	echo "Already preprocessing ${sub_base} - skipping!"
 	    continue
     fi
@@ -99,7 +108,7 @@ for sub_dir in ${sub_dirs[@]}; do
     elif [ ${n_dwi} = 1 ]; then
         # Nothing to concatenate!
         echo "Found exactly one DWI for ${sub_base} ..."
-        check_and_copy ${dwis[0]} ${sub_out}
+        check_and_copy ${dwis[0]} ${sub_out} ${sub_base}
     else
         # Check if the data is complete
         bvals=($(find ${sub_dir} -maxdepth 2 -name *_dwi.bval -print0 | sort -z | xargs -r0))
