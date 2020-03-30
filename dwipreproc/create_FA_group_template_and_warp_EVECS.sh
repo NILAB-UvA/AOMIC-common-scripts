@@ -76,6 +76,6 @@ for sub_dir in ${sub_dirs[@]}; do
         -force
 done
 
-EVECS_median=${out_dir}/EVECS_median.nii.gz
-mrmath $(ls ${evecs_dir}/sub*space-template*.nii.gz) median ${EVECS_median} 
+#EVECS_median=${out_dir}/EVECS_median.nii.gz
+#mrmath $(ls ${evecs_dir}/sub*space-template*.nii.gz) median ${EVECS_median} 
 

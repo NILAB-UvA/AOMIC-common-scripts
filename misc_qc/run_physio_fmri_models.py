@@ -22,7 +22,7 @@ def fit_firstlevel(bids_dir, sub, acq, space, out_dir):
     funcs = sorted(glob(op.join(
         sub, 'func', f'*{acq}*_space-{space}*{ext}'
     )))
-
+    
     to_save = ['resp', 'cardiac', 'interaction', 'hrv', 'rvt']
     cons = {}
     for func in funcs:

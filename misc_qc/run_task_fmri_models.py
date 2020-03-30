@@ -20,7 +20,7 @@ TASK_INFO = dict(
         name=['imgnegGTimgneu', 'cuenegGTcuepos']
     ),
     workingmemory=dict(
-        contrast=['active_change + active_nochange - passive', 'active_change - active_nochange'],
+        contrast=['active_change + active_nochange - 2*passive', 'active_change - active_nochange'],
         name=['activeGTpassive', 'changeGTnochange']
     ),
     gstroop=dict(
@@ -123,11 +123,14 @@ def main(bids_dir, out_dir, level, task, space, smoothing, n_jobs):
         out_dir = op.join(bids_dir, 'derivatives', 'task_fmri')
     
     if level == 'participant':
-        ext = 'func.gii' if 'fs' in space else 'desc_preproc_bold.nii.gz'
+        ext = 'func.gii' if 'fs' in space else 'desc-preproc_bold.nii.gz'
         fprep_dir = op.join(bids_dir, 'derivatives', 'fmriprep')
         funcs = sorted(glob(op.join(
             fprep_dir, 'sub-*', 'func', f'*task-{task}_*_space-{space}*{ext}'
         )))
+        print(op.join(
+            fprep_dir, 'sub-*', 'func', f'*task-{task}_*_space-{space}*{ext}'
+        ))
         _ = Parallel(n_jobs=n_jobs)(delayed(fit_firstlevel)(bids_dir, f, task, space, out_dir) for f in tqdm(funcs))
     else:
         for cname in TASK_INFO[task]['name']:
@@ -142,7 +145,7 @@ def main(bids_dir, out_dir, level, task, space, smoothing, n_jobs):
                 dm = pd.DataFrame(np.ones(len(betas)), columns=['intercept'])
                 if 'fs' not in space:
                     if smoothing is not None:
-                        betas = [image.smooth_img(b) for b in betas]
+                        betas = [image.smooth_img(b, smoothing) for b in betas]
                     mean_img = image.mean_img(betas)
                     mask = (mean_img.get_fdata() != 0).astype(int)
                     mask = nib.Nifti1Image(mask, affine=mean_img.affine)
@@ -150,7 +153,7 @@ def main(bids_dir, out_dir, level, task, space, smoothing, n_jobs):
                 else:
                     Y = np.vstack([np.load(b) for b in betas])
 
-                labels, results = run_glm(Y, dm.values, noise_model='ols')
+                labels, results = run_glm(Y, dm.values, noise_model='ols', n_jobs=n_jobs)
                 group_result = compute_contrast(labels, results, [1], contrast_type='t')
                 if 'fs' in space:
                     f_out = op.join(out_dir, f'task-{task}_contrast-{cname}{s}_desc-grouplevel_zscore.npy')
