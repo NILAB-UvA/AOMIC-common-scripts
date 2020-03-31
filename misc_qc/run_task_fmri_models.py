@@ -24,8 +24,9 @@ TASK_INFO = dict(
         name=['activeGTpassive', 'changeGTnochange']
     ),
     gstroop=dict(
-        contrast=['incongruent - congruent'],
-        name=['incongruentGTcongruent']
+        column='response_accuracy',
+        contrast=['incorrect - correct'],
+        name=['incorrectGTcorrect']
     ),
     faces=dict(
         contrast=['joy + anger + pride + contempt - 4*neutral'],
@@ -54,6 +55,15 @@ def fit_firstlevel(bids_dir, func, task, space, out_dir):
 
     events = op.join(bids_dir, sub_base, 'func', op.basename(func).split('space')[0] + 'events.tsv')
     events = pd.read_csv(events, sep='\t')
+
+    if 'column' in TASK_INFO[task].keys():
+        events = events.drop('trial_type', axis=1)
+        events['trial_type'] = events.loc[:, TASK_INFO[task]['column']]
+        n_correct = np.sum(events['trial_type'] == 'correct')
+        prop_correct = n_correct / events.shape[0]
+        if prop_correct < 0.2:
+            print(f"{func}: {prop_correct}")
+            events['trial_type'] = events['trial_type'].replace({'correct': 'incorrect', 'miss': 'miss', 'incorrect': 'correct'})
 
     if 'fs' in space:
         func_vol = func.split('space')[0] + 'space-MNI152NLin2009cAsym_desc-preproc_bold.nii.gz'
