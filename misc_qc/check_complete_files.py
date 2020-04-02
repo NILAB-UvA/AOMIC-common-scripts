@@ -14,6 +14,20 @@ def main(bids_dir, spaces=None):
                 print(f"WARNING: {mriqc_f} does not exist.")
 
     sub_dirs_bids = [d for d in sorted(glob(op.join(bids_dir, 'sub-*'))) if op.isdir(d)]
+    subs = [op.basename(d) for d in sub_dirs_bids]
+    partic_file = op.join(bids_dir, 'participants.tsv')
+    if not op.isfile(partic_file):
+        raise ValueError("There is no participants.tsv file!")
+
+    df = pd.read_csv(op.join(bids_dir, 'participants.tsv'), sep='\t')
+    for sub in subs:
+        if sub not in df['participant_id'].tolist():
+            print(f"WARNING: {sub} not present in participants.tsv file!")
+
+    for sub in df['participant_id']:
+        if sub not in subs:
+            print(f"WARNING: {sub} is in participants.tsv, but does not have BIDS dir")
+
     for sdir in sub_dirs_bids:
         sub_base = op.basename(sdir)
 
@@ -220,8 +234,8 @@ def main(bids_dir, spaces=None):
                 elif deriv == 'dwipreproc':
                     files = [op.basename(s).split('_')[0] for s in glob(op.join(sub, 'dwi', '*_FA.nii.gz'))]
                     for f in files:
-                        bids_f = op.join(bids_dir, sub_base, 'dwi', f'{f}_dwi.nii.gz')
-                        if not op.isfile(bids_f):
+                        bids_f = op.join(bids_dir, sub_base, 'dwi')
+                        if not op.isdir(bids_f):
                             print(f"WARNING: {f} exists in dwipreproc, but not in BIDS, {bids_f}.")
 
                 elif deriv == 'mriqc':

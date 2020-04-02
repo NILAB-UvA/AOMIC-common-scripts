@@ -1,3 +1,4 @@
+import sys
 import os
 import os.path as op
 import numpy as np
@@ -110,23 +111,32 @@ def plot_eddy_qc(eddy_qc, f_out):
     plt.close()
 
 
+def _parallel_proc(sub_dir):
+    sub_base = op.basename(sub_dir)
+    d_out = op.join(sub_dir, 'figures')
+    if not op.isdir(d_out):
+        os.makedirs(d_out)
+
+    fa = op.join(sub_dir, 'dwi', f'{sub_base}_model-DTI_desc-WLS_FA.nii.gz')
+    evecs = op.join(sub_dir, 'dwi', f'{sub_base}_model-DTI_desc-WLS_EVECS.nii.gz')
+
+    f_out = op.join(d_out, f'{sub_base}_desc-FA+EVECS_DTI.png')    
+    plot_DEC(evecs, fa, f_out=f_out)
+
+    eddy_qc = op.join(sub_dir,  'eddy_qc')
+    f_out = op.join(d_out, f'{sub_base}_desc-eddy_qcparams.png')
+    plot_eddy_qc(eddy_qc, f_out)
+
+
 if __name__ == '__main__':
+    from joblib import Parallel, delayed
 
-    dwi_dir = '../derivatives/dwipreproc'
+    bids_dir = sys.argv[1]
+    if not op.isdir(bids_dir):
+        raise ValueError(f"{bids_dir} is not a directory!")
+
+    n_jobs = int(sys.argv[2])
+
+    dwi_dir = f'{bids_dir}/derivatives/dwipreproc'
     sub_dirs = sorted(glob(op.join(dwi_dir, 'sub-*')))
-
-    for sub_dir in tqdm(sub_dirs):
-        sub_base = op.basename(sub_dir)
-        d_out = op.join(sub_dir, 'figures')
-        if not op.isdir(d_out):
-            os.makedirs(d_out)
-
-        fa = op.join(sub_dir, 'dwi', f'{sub_base}_model-DTI_desc-WLS_FA.nii.gz')
-        evecs = op.join(sub_dir, 'dwi', f'{sub_base}_model-DTI_desc-WLS_EVECS.nii.gz')
-
-        f_out = op.join(d_out, f'{sub_base}_desc-FA+EVECS_DTI.png')    
-        plot_DEC(evecs, fa, f_out=f_out)
-
-        eddy_qc = op.join(sub_dir, 'dwi', eddy_qc)
-        f_out = op.join(d_out, f'{sub_base}_desc-eddy_qcparams.png')
-        plot_eddy_qc(eddy_qc, f_out)
+    Parallel(n_jobs=n_jobs)(delayed(_parallel_proc)(sub_dir) for sub_dir in tqdm(sub_dirs))

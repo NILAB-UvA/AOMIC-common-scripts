@@ -4,17 +4,29 @@ if [ ! -d ${bids_dir} ]; then
     exit 1
 fi
 
+n_jobs=$2
+if [ -z "$n_jobs" ]; then
+    n_jobs=1
+fi
+
 bids_dir=$(realpath ${bids_dir})
-out_dir=$bids_dir/derivatives/mriqc
-work_dir=$(realpath ../../mriqc_work)
-n_jobs=10
+out_dir=${bids_dir}/derivatives/mriqc
+work_dir=$(dirname ${bids_dir})/mriqc_work
+if [ ! -d ${work_dir} ]; then
+    mkdir ${work_dir}
+fi
+
+echo "BIDS dir: ${bids_dir}"
+echo "OUT dir: ${out_dir}"
+echo "WORK dir: ${work_dir}"
+echo "n_jobs: ${n_jobs}"
 
 subs=`ls -d1 $bids_dir/sub-????`
 # Run subjects one at the time as to avoid memory issues
 i=0
 for sub in $subs; do
     base_sub=`basename $sub`
-    if [ -d ../derivatives/mriqc/${base_sub} ]; then
+    if [ -d ${out_dir}/${base_sub} ]; then
         echo "${base_sub} already done!"
         continue
     else
