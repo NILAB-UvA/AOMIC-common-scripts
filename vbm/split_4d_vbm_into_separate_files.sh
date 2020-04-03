@@ -5,7 +5,7 @@ if [ -z ${bids_dir} ]; then
     echo "ERROR: bids-dir not given!"
     exit 1
 fi
-vbm4d=${bids_dir}/derivatives/vbm/stats/GM_mod_merg_s3.nii.gz
+vbm4d=${bids_dir}/derivatives/vbm/stats/GM_mod_merg.nii.gz
 fslsplit $vbm4d ${bids_dir}/derivatives/vbm/tmp -t
 
 files=($(ls ${bids_dir}/derivatives/vbm/tmp*))

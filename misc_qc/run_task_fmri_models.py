@@ -32,7 +32,7 @@ TASK_INFO = dict(
         contrast=['joy + anger + pride + contempt - 4*neutral'],
         name=['emoexpGTneutral']
     ),
-    emorecognition=dict(
+    emomatching=dict(
         contrast=['emotion - control'],
         name=['emotionGTcontrol']
     ),

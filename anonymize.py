@@ -1,3 +1,4 @@
+import sys
 import yaml
 import random
 import logging
@@ -171,8 +172,13 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     if bids_dir == out_dir:
         raise ValueError("bids_dir and out_dir are the same!")
     
-    #resp = input(f'Going to remove contents from {op.abspath(out_dir)}, continue? (y, n) ')
-    resp = 'y'
+    log = logging.getLogger(__name__)
+    log.info(f"Anonymizing BIDS directory {bids_dir}")
+    log.info(f"Setting output-dir to {out_dir}")
+    log.info(f"Using {n_jobs} jobs")
+    log.info(f"Skipping: {skip}")
+
+    resp = input(f'\nGoing to remove contents from {op.abspath(out_dir)}, continue? (y, n) ')
     if resp in ['y', 'Y']:
         if 'bids' not in skip:
             to_remove = [f for f in glob(op.join(out_dir, '*')) if f != 'derivatives']
@@ -182,11 +188,8 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
             if ddir not in skip:
                 _delete(glob(op.join(out_dir, 'derivatives', ddir, '*')))
 
-    log = logging.getLogger(__name__)
-    
     bids_subs = sorted(  # find BIDS subject directories
-        [d for d in glob(op.join(bids_dir, 'sub-*'))
-        if op.isdir(d)]
+        [d for d in glob(op.join(bids_dir, 'sub-*')) if op.isdir(d)]
     )
     
     bids_unique = sorted(list(set([op.basename(d) for d in bids_subs])))
@@ -297,9 +300,16 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     _fix_permissions(out_dir)
 
 if __name__ == '__main__':
-    project = op.basename(op.dirname(__file__))
-    with open('../RND_SEEDS.yml', 'r') as f_in:
+
+    bids_dir = sys.argv[1]
+    if not op.isdir(bids_dir):
+        raise ValueError(f"{bids_dir} is not a directory!")
+
+    out_dir = sys.argv[2]
+    seed_file = sys.argv[3]
+    project = op.basename(op.dirname(bids_dir))
+    with open(seed_file, 'r') as f_in:
         rnd_seeds = yaml.safe_load(f_in)
         seed = rnd_seeds[project]
 
-    main('bids', 'bids_anon', seed=seed, n_jobs=1, skip=['bids', 'fmriprep'])
+    main(bids_dir, out_dir, seed=seed, n_jobs=1)
