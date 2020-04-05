@@ -60,7 +60,7 @@ def plot_DEC(evecs, fa, f_out, coords=(35, 45, 24)):
             for ii, mod in enumerate(['FA', 'EVECS', 'Mod. FA']):
                 axes[ii, 0].text(-15, fa_slc.shape[0] // 2, mod, fontsize=25, rotation=90, verticalalignment='center')
 
-    axes[0, 0].text(s=op.basename(fa).split('_FA')[0], x=-15, y=80, fontsize=25)
+    #axes[0, 0].text(s=op.basename(fa).split('_FA')[0], x=-15, y=80, fontsize=25)
     fig.savefig(f_out)
     plt.close()
 
@@ -89,9 +89,9 @@ def plot_eddy_qc(eddy_qc, f_out):
         else:
             ax.set_xlabel("Directions", fontsize=15)
         
-        if i == 0:
-            sub_base = op.basename(op.dirname(eddy_qc))
-            ax.text(0, ylim[1] + 0.3 * ylim[1], sub_base, fontsize=20)
+        #if i == 0:
+        #    sub_base = op.basename(op.dirname(eddy_qc))
+        #    ax.text(0, ylim[1] + 0.3 * ylim[1], sub_base, fontsize=20)
 
     names = ['eddy_outlier_map', 'eddy_outlier_n_sqr_stdev_map', 'eddy_outlier_n_stdev_map']
     for i, name in enumerate(names):

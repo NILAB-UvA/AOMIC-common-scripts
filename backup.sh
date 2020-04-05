@@ -13,4 +13,4 @@ tar --exclude='${bids_dir}/derivatives/dual_regression_rs' \
     --exclude='${bids_dir}/derivatives/task_fmri' \
     --exclude='${bids_dir}/derivatives/physio_fmri' \
     --use-compress-program=pigz \
-    -cvf ${out} ${bids_dir}
+    -cf ${out} ${bids_dir}

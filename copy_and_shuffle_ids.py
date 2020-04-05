@@ -209,6 +209,11 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     log.info(f"Found {len(all_unique)} unique files.")
 
     # Check if the derivatives do not contain subs that do not have BIDS files
+    to_print = []
+    for f in all_files:
+        if op.basename(f).split('.')[0].split('_')[0] not in bids_unique:
+            raise ValueError(f"{op.basename(f)} is not in bids-unique (full path: {f})")
+
     diff = set(all_unique) - set(bids_unique)
     if diff:
         raise ValueError(f"Found files that do not have a BIDS dir: {diff}")
@@ -227,6 +232,9 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     mapping_df['new_id'] = new_ids
     mapping_df.to_csv(op.join(op.dirname(bids_dir), 'shuffle-key.tsv'), sep='\t', index=False)
 
+    if not op.isdir(out_dir):
+        log.info(f"Creating {out_dir}")
+        os.makedirs(out_dir)
     ##### 0. Code
     #_copy_dir_and_check('code', bids_dir, out_dir, mapping, old_id=None)
 
@@ -290,6 +298,9 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
 
     ### 2.3. MRIQC
     mriqc_dir = op.join('derivatives', 'mriqc')
+    if not op.isdir(op.join(out_dir, 'derivatives', 'mriqc')):
+        os.makedirs(op.join(out_dir, 'derivatives', 'mriqc'))
+
     for idf in ['bold', 'T1w']:
         group_file = op.join(mriqc_dir, f'group_{idf}.tsv')
         group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
@@ -317,6 +328,9 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
 
     ### 2.4. dwi
     dwi_dir = op.join('derivatives', 'dwipreproc')
+    is not op.isdir(op.join(out_dir, 'derivatives', 'dwipreproc')):
+        os.makedirs(op.join(out_dir, 'derivatives', 'dwipreproc'))
+
     group_file = op.join(mriqc_dir, f'group_dwi.tsv')
     group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
     _shuffle_tsv_contents(group_file, mapping_df)
