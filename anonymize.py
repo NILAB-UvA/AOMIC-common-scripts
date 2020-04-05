@@ -184,7 +184,7 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
             to_remove = [f for f in glob(op.join(out_dir, '*')) if f != 'derivatives']
             _delete(to_remove)
 
-        for ddir in ['fmriprep', 'mriqc', 'physiology', 'freesurfer']:
+        for ddir in ['fmriprep', 'mriqc', 'physiology', 'freesurfer', 'dwipreproc']:
             if ddir not in skip:
                 _delete(glob(op.join(out_dir, 'derivatives', ddir, '*')))
 
