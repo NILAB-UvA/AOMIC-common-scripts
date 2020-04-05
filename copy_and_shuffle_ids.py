@@ -20,6 +20,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+log = logging.getLogger(__name__)
 
 
 EXCLUDE_FROM_CHECK = [
@@ -78,6 +79,14 @@ def _check_contents_for_id_and_replace(f, old_id, new_id):
     with open(f, 'w') as f_out:
         f_out.write(data)
 
+def _shuffle_tsv_contents(tsv, mapping):
+    log.info(f"Shuffling contents of {tsv}")
+    df = pd.read_csv(tsv, sep='\t').set_index('participant_id')
+    df = df.loc[mapping['old_id'], :].reset_index()
+    df['participant_id'] = mapping['new_id']
+    df = df.sort_values('participant_id', axis=0).fillna('n/a')
+    df.to_csv(tsv, sep='\t', index=False)
+
 
 def _copy_file_and_check(to_copy, bids_dir, out_dir, mapping, old_id=None):
     src = op.join(bids_dir, to_copy)
@@ -86,6 +95,7 @@ def _copy_file_and_check(to_copy, bids_dir, out_dir, mapping, old_id=None):
         shutil.copyfile(src, dst)
         os.chmod(dst, 0o644)
     else:
+        log.info(f"Trying to copy {to_copy}, but it doesn't exist!")
         return None
 
     base_dst = op.basename(dst)
@@ -172,7 +182,6 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     if bids_dir == out_dir:
         raise ValueError("bids_dir and out_dir are the same!")
     
-    log = logging.getLogger(__name__)
     log.info(f"Anonymizing BIDS directory {bids_dir}")
     log.info(f"Setting output-dir to {out_dir}")
     log.info(f"Using {n_jobs} jobs")
@@ -212,23 +221,28 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
         if k == v:
             raise ValueError(f"Mapping is the same for {k}!")
 
+    # Save mapping
+    mapping_df = pd.DataFrame()
+    mapping_df['old_id'] = bids_unique
+    mapping_df['new_id'] = new_ids
+    mapping_df.to_csv(op.join(op.dirname(bids_dir), 'shuffle-key.tsv'), sep='\t', index=False)
+
     ##### 0. Code
-    _copy_dir_and_check('code', bids_dir, out_dir, mapping, old_id=None)
+    #_copy_dir_and_check('code', bids_dir, out_dir, mapping, old_id=None)
 
     ##### 1. Random stuff
     dst = _copy_file_and_check('participants.tsv', bids_dir, out_dir, mapping, old_id=None)
 
-    if dst is not None:
-        df = pd.read_csv(dst, sep='\t').set_index('participant_id')
-        df = df.loc[bids_unique, :].reset_index()
-        df['participant_id'] = new_ids
-        df = df.sort_values('participant_id', axis=0).fillna('n/a')
-        df.to_csv(dst, sep='\t', index=False)
+    if dst is not None:  # shuffle participants.tsv
+        _shuffle_tsv_contents(dst, mapping_df)
     
     md_files = [f for f in glob(op.join(bids_dir, '*')) if op.isfile(f)]
     for f in md_files:
         if op.basename(f) in ['participants.tsv', 'LICENSE', 'README.md']:
             continue
+
+        if 'sub-' in f:
+            raise ValueError(f"Want to copy {f} without checking, but contains 'sub-'!")
 
         _copy_file_and_check(op.basename(f), bids_dir, out_dir, mapping, old_id=None)
     
@@ -276,6 +290,11 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
 
     ### 2.3. MRIQC
     mriqc_dir = op.join('derivatives', 'mriqc')
+    for idf in ['bold', 'T1w']:
+        group_file = op.join(mriqc_dir, f'group_{idf}.tsv')
+        group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
+        _shuffle_tsv_contents(group_file, mapping_df)
+
     sub_dirs = sorted(glob(op.join(bids_dir, mriqc_dir, 'sub-*')))
     Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
         (op.join(mriqc_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
@@ -294,6 +313,18 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
         (op.join(physio_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
         for sub_dir in tqdm(sub_dirs, desc='physio')
+    )
+
+    ### 2.4. dwi
+    dwi_dir = op.join('derivatives', 'dwipreproc')
+    group_file = op.join(mriqc_dir, f'group_dwi.tsv')
+    group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
+    _shuffle_tsv_contents(group_file, mapping_df)
+
+    sub_dirs = sorted(glob(op.join(bids_dir, dwi_dir, 'sub-*')))
+    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+        (op.join(dwi_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+        for sub_dir in tqdm(sub_dirs, desc='dwi')
     )
 
     # Double check
