@@ -58,9 +58,5 @@ if __name__ == '__main__':
         for ii, xyz in enumerate(['x', 'y', 'z']):
             df.loc[i, f'std_ec_{xyz}'] = ecs[ii]
 
-    d_out = op.join(dwipreproc_dir, 'qc')
-    if not op.isdir(d_out):
-        os.makedirs(d_out)
-
-    df.to_csv(op.join(d_out, 'group_dwi.tsv'), sep='\t')
+    df.to_csv(op.join(dwipreproc_dir, 'group_dwi.tsv'), sep='\t')
     

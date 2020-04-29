@@ -153,6 +153,8 @@ def _copy_dir_and_check(to_copy, bids_dir, out_dir, mapping, old_id=None):
         shutil.copytree(src, dst)
         _fix_permissions(dst)
         _recursive_walk(dst, mapping, old_id=old_id, new_id=new_id)
+    else:
+        print(f"Cannot copy {src} to {dst} because destination already exists!")
 
 def _delete(all_data):
 
@@ -193,7 +195,7 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
             to_remove = [f for f in glob(op.join(out_dir, '*')) if f != 'derivatives']
             _delete(to_remove)
 
-        for ddir in ['fmriprep', 'mriqc', 'physiology', 'freesurfer', 'dwipreproc']:
+        for ddir in ['fmriprep', 'mriqc', 'physiology', 'freesurfer', 'dwipreproc', 'vbm']:
             if ddir not in skip:
                 _delete(glob(op.join(out_dir, 'derivatives', ddir, '*')))
 
@@ -256,90 +258,100 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
     
     ##### 2. BIDS data
     ### 2.1. Sub-directories
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.basename(sub_dir), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(bids_subs, desc='bids')
-    )
+    if 'bids' not in skip:
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.basename(sub_dir), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(bids_subs, desc='bids')
+        )
 
     ##### 2. Derivatives
     ### 2.1. Fmriprep
-    fmriprep_dir = op.join('derivatives', 'fmriprep')
-    _copy_dir_and_check(op.join(fmriprep_dir, 'logs'), bids_dir, out_dir, mapping)
-    for f in ['dataset_description.json', 'desc-aparcaseg_dseg.tsv', 'desc-aseg_dseg.tsv']:
-        to_check = op.join('derivatives', 'fmriprep', f)
-        _copy_file_and_check(to_check, bids_dir, out_dir, mapping)
+    if 'fmriprep' not in skip:
+        fmriprep_dir = op.join('derivatives', 'fmriprep')
+        _copy_dir_and_check(op.join(fmriprep_dir, 'logs'), bids_dir, out_dir, mapping)
+        for f in ['dataset_description.json', 'desc-aparcaseg_dseg.tsv', 'desc-aseg_dseg.tsv']:
+            to_check = op.join('derivatives', 'fmriprep', f)
+            _copy_file_and_check(to_check, bids_dir, out_dir, mapping)
 
-    sub_dirs = [d for d in sorted(glob(op.join(bids_dir, fmriprep_dir, 'sub-*')))
-                if op.isdir(d)]
-    #for sub_dir in tqdm(sub_dirs):
-    #    _copy_dir_and_check(op.join(fmriprep_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.join(fmriprep_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(sub_dirs, desc='fmriprep dir')
-    )
+        sub_dirs = [d for d in sorted(glob(op.join(bids_dir, fmriprep_dir, 'sub-*')))
+                    if op.isdir(d)]
     
-    html_files = sorted(glob(op.join(bids_dir, fmriprep_dir, 'sub-*.html')))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_file_and_check)
-        (op.join(fmriprep_dir, op.basename(f)), bids_dir, out_dir, mapping)
-        for f in tqdm(html_files, desc='fmriprep html')
-    )
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(fmriprep_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='fmriprep dir')
+        )
+    
+        html_files = sorted(glob(op.join(bids_dir, fmriprep_dir, 'sub-*.html')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_file_and_check)
+            (op.join(fmriprep_dir, op.basename(f)), bids_dir, out_dir, mapping)
+            for f in tqdm(html_files, desc='fmriprep html')
+        )
 
     ### 2.2. Freesurfer
-    fs_dir = op.join('derivatives', 'freesurfer')
-    fsav_dirs = glob(op.join(bids_dir, fs_dir, 'fsaverage*'))
-    for fsav_dir in fsav_dirs:
-        _copy_dir_and_check(op.join(fs_dir, op.basename(fsav_dir)), bids_dir, out_dir, mapping)
+    if 'freesurfer' not in skip:
+        fs_dir = op.join('derivatives', 'freesurfer')
+        fsav_dirs = glob(op.join(bids_dir, fs_dir, 'fsaverage*'))
+        for fsav_dir in fsav_dirs:
+            _copy_dir_and_check(op.join(fs_dir, op.basename(fsav_dir)), bids_dir, out_dir, mapping)
     
-    sub_dirs = sorted(glob(op.join(bids_dir, fs_dir, 'sub-*')))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.join(fs_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(sub_dirs, desc='freesurfer')
-    )
+        sub_dirs = sorted(glob(op.join(bids_dir, fs_dir, 'sub-*')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(fs_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='freesurfer')
+        )
 
     ### 2.3. MRIQC
-    mriqc_dir = op.join('derivatives', 'mriqc')
-    if not op.isdir(op.join(out_dir, 'derivatives', 'mriqc')):
-        os.makedirs(op.join(out_dir, 'derivatives', 'mriqc'))
+    if 'mriqc' not in skip:
+        mriqc_dir = op.join('derivatives', 'mriqc')
+        if not op.isdir(op.join(out_dir, 'derivatives', 'mriqc')):
+            os.makedirs(op.join(out_dir, 'derivatives', 'mriqc'))
 
-    for idf in ['bold', 'T1w']:
-        group_file = op.join(mriqc_dir, f'group_{idf}.tsv')
-        group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
-        _shuffle_tsv_contents(group_file, mapping_df)
-
-    sub_dirs = sorted(glob(op.join(bids_dir, mriqc_dir, 'sub-*')))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.join(mriqc_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(sub_dirs, desc='mriqc dir')
-    )
+        sub_dirs = sorted(glob(op.join(bids_dir, mriqc_dir, 'sub-*')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(mriqc_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='mriqc dir')
+        )
     
-    html_files = glob(op.join(bids_dir, mriqc_dir, 'sub-*.html'))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_file_and_check)
-        (op.join(mriqc_dir, op.basename(f)), bids_dir, out_dir, mapping)
-        for f in tqdm(html_files, desc='mriqc html')
-    )
+        html_files = glob(op.join(bids_dir, mriqc_dir, 'sub-*.html'))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_file_and_check)
+            (op.join(mriqc_dir, op.basename(f)), bids_dir, out_dir, mapping)
+            for f in tqdm(html_files, desc='mriqc html')
+        )
 
     ### 2.4. physiology
-    physio_dir = op.join('derivatives', 'physiology')
-    sub_dirs = sorted(glob(op.join(bids_dir, physio_dir, 'sub-*')))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.join(physio_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(sub_dirs, desc='physio')
-    )
+    if 'physiology' not in skip:
+        physio_dir = op.join('derivatives', 'physiology')
+        sub_dirs = sorted(glob(op.join(bids_dir, physio_dir, 'sub-*')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(physio_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='physio')
+        )
 
-    ### 2.4. dwi
-    dwi_dir = op.join('derivatives', 'dwipreproc')
-    is not op.isdir(op.join(out_dir, 'derivatives', 'dwipreproc')):
-        os.makedirs(op.join(out_dir, 'derivatives', 'dwipreproc'))
+    ### 2.5. dwi
+    if 'dwipreproc' not in skip:
+        dwi_dir = op.join('derivatives', 'dwipreproc')
+        if not op.isdir(op.join(out_dir, 'derivatives', 'dwipreproc')):
+            os.makedirs(op.join(out_dir, 'derivatives', 'dwipreproc'))
 
-    group_file = op.join(mriqc_dir, f'group_dwi.tsv')
-    group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
-    _shuffle_tsv_contents(group_file, mapping_df)
+        group_file = op.join(dwi_dir, f'group_dwi.tsv')
+        group_file = _copy_file_and_check(group_file, bids_dir, out_dir, mapping, old_id=None)
+        if group_file is not None:
+            _shuffle_tsv_contents(group_file, mapping_df)
 
-    sub_dirs = sorted(glob(op.join(bids_dir, dwi_dir, 'sub-*')))
-    Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
-        (op.join(dwi_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
-        for sub_dir in tqdm(sub_dirs, desc='dwi')
-    )
+        sub_dirs = sorted(glob(op.join(bids_dir, dwi_dir, 'sub-*')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(dwi_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='dwi')
+        )
+    
+    ### 2.6. vbm
+    if 'vbm' not in skip:
+        vbm_dir = op.join('derivatives', 'vbm')
+        sub_dirs = sorted(glob(op.join(bids_dir, vbm_dir, 'sub-*')))
+        Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
+            (op.join(vbm_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
+            for sub_dir in tqdm(sub_dirs, desc='vbm')
+        )
 
     # Double check
     _fix_permissions(out_dir)
@@ -352,9 +364,15 @@ if __name__ == '__main__':
 
     out_dir = sys.argv[2]
     seed_file = sys.argv[3]
+
+    if len(sys.argv) > 4:
+        to_skip = sys.argv[4:]
+    else:
+        to_skip = None
+
     project = op.basename(op.dirname(bids_dir))
     with open(seed_file, 'r') as f_in:
         rnd_seeds = yaml.safe_load(f_in)
         seed = rnd_seeds[project]
 
-    main(bids_dir, out_dir, seed=seed, n_jobs=1)
+    main(bids_dir, out_dir, seed=seed, skip=to_skip, n_jobs=1)
