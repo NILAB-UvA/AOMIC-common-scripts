@@ -1,9 +1,20 @@
 # source activate python2
 set -e
-export SUBJECTS_DIR=../derivatives/freesurfer
+fs_dir=$1
+if [ ! -d $fs_dir ]; then
+    echo "$fs_dir does not exist!"
+    exit 1
+fi
+out_dir=$(dirname $fs_dir)/fs_stats
+echo $out_dir
+if [ ! -d $out_dir ]; then
+    echo "creating $out_dir"
+    mkdir $out_dir
+fi
+export SUBJECTS_DIR=$fs_dir
 
 subs=()
-for sub in $(ls -d ../sub-????); do
+for sub in $(ls -d ${fs_dir}/sub-*); do
     subs+=($(basename ${sub}))
 done
 
@@ -12,7 +23,7 @@ for measure in volume mean; do
     for statsfile in aseg.stats wmparc.stats; do
         echo -e "\nRUNNING asegstats2table WITH MEASURE ${measure} AND STATSFILE ${statsfile}!\n"
         asegstats2table --subjects ${subs[@]} \
-            --tablefile ../derivatives/fs_stats/data-subcortical_type-${statsfile/.stats/}_measure-${measure}_hemi-both.tsv \
+            --tablefile $out_dir/data-subcortical_type-${statsfile/.stats/}_measure-${measure}_hemi-both.tsv \
             --meas ${measure} \
             --statsfile ${statsfile} \
             --delimiter 'tab'
@@ -28,7 +39,7 @@ for measure in volume thickness area meancurv; do
                 --hemi ${hemi} \
                 --parc ${parc} \
                 --measure ${measure} \
-                --tablefile ../derivatives/fs_stats/data-cortical_type-${parc}_measure-${measure}_hemi-${hemi}.tsv \
+                --tablefile $out_dir/data-cortical_type-${parc}_measure-${measure}_hemi-${hemi}.tsv \
                 --delimiter 'tab'           
         done
     done

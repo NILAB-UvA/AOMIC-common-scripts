@@ -82,29 +82,35 @@ def _check_contents_for_id_and_replace(f, old_id, new_id):
 def _shuffle_tsv_contents(tsv, mapping):
     log.info(f"Shuffling contents of {tsv}")
     df = pd.read_csv(tsv, sep='\t').set_index('participant_id')
-    df = df.loc[mapping['old_id'], :].reset_index()
-    df['participant_id'] = mapping['new_id']
+    not_available = mapping.set_index('old_id').index.difference(df.index)
+    if len(not_available):
+        print(f"The following IDs are not present in {tsv}: {not_available}")
+    this_mapping = mapping.copy()
+    this_mapping = this_mapping.set_index('old_id').drop(not_available, axis=0).reset_index()
+    df = df.loc[this_mapping['old_id'], :].reset_index()
+    df['participant_id'] = this_mapping['new_id']
     df = df.sort_values('participant_id', axis=0).fillna('n/a')
     df.to_csv(tsv, sep='\t', index=False)
 
 
 def _copy_file_and_check(to_copy, bids_dir, out_dir, mapping, old_id=None):
     src = op.join(bids_dir, to_copy)
-    dst = op.join(out_dir, to_copy)
-    if op.isfile(src):
+    if 'sub-' in op.basename(src):
+        old_id = op.basename(src).split('_')[0].split('.')[0]
+        dst = op.join(out_dir, op.dirname(to_copy), op.basename(to_copy).replace(old_id, mapping[old_id]))
+    else:
+        dst = op.join(out_dir, to_copy)
+
+    if op.isfile(src) and not op.isfile(dst):
         shutil.copyfile(src, dst)
         os.chmod(dst, 0o644)
+    elif op.isfile(dst):
+        log.info(f"Trying to copy to {dst}, but already exists!")
+        return None
     else:
-        log.info(f"Trying to copy {to_copy}, but it doesn't exist!")
+        log.info(f"Trying to copy {src}, but it doesn't exist!")
         return None
 
-    base_dst = op.basename(dst)
-    if 'sub-' in op.basename(base_dst):
-        old_id = base_dst.split('.')[0].split('_')[0]
-        dst_new = op.join(op.dirname(dst), base_dst.replace(old_id, mapping[old_id]))
-        os.rename(dst, dst_new)
-        dst = dst_new
-    
     if old_id is not None:
         ext = dst.split('.')[-1]
         if ext not in EXCLUDE_FROM_CHECK:
@@ -147,9 +153,6 @@ def _copy_dir_and_check(to_copy, bids_dir, out_dir, mapping, old_id=None):
         dst = op.join(out_dir, to_copy)
     
     if op.isdir(src) and not op.isdir(dst):
-        #print(f'src: {src}')
-        #print(f'dst: {dst}')
-    
         shutil.copytree(src, dst)
         _fix_permissions(dst)
         _recursive_walk(dst, mapping, old_id=old_id, new_id=new_id)
@@ -245,7 +248,7 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
 
     if dst is not None:  # shuffle participants.tsv
         _shuffle_tsv_contents(dst, mapping_df)
-    
+    exit()
     md_files = [f for f in glob(op.join(bids_dir, '*')) if op.isfile(f)]
     for f in md_files:
         if op.basename(f) in ['participants.tsv', 'LICENSE', 'README.md']:
@@ -306,7 +309,7 @@ def main(bids_dir, out_dir, seed=None, n_jobs=1, skip=None):
         if not op.isdir(op.join(out_dir, 'derivatives', 'mriqc')):
             os.makedirs(op.join(out_dir, 'derivatives', 'mriqc'))
 
-        sub_dirs = sorted(glob(op.join(bids_dir, mriqc_dir, 'sub-*')))
+        sub_dirs = sorted([d for d in glob(op.join(bids_dir, mriqc_dir, 'sub-*')) if op.isdir(d)])
         Parallel(n_jobs=n_jobs)(delayed(_copy_dir_and_check)
             (op.join(mriqc_dir, op.basename(sub_dir)), bids_dir, out_dir, mapping)
             for sub_dir in tqdm(sub_dirs, desc='mriqc dir')

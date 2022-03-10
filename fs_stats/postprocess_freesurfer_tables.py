@@ -1,6 +1,7 @@
 """ Disclaimer: this is possibly the ugliest code I've ever written.
 It works, that's it. Please don't use it for your own analyses. 
 """
+import sys
 import os
 import json
 import os.path as op
@@ -26,8 +27,8 @@ hemi2word = {
     'lh': 'Left'
 }
 
-
-subs = [op.basename(d) for d in sorted(glob('../derivatives/freesurfer/sub-*'))]
+fs_dir = sys.argv[1]
+subs = [op.basename(d) for d in sorted(glob(f'{fs_dir}/sub-*'))]
 
 json_file = {
     "cortical": {
@@ -65,7 +66,7 @@ json_file = {
         }
     }
 }
-
+fss_dir = op.join(op.dirname(fs_dir), 'fs_stats')
 for atlas in fsname2atlas['cortical'].keys():
 
     for sub in tqdm(subs, desc=atlas):
@@ -73,7 +74,7 @@ for atlas in fsname2atlas['cortical'].keys():
         for hemi in ('lh', 'rh'):
             i = 0
             for measure in ['volume', 'thickness', 'area', 'meancurv']:
-                f = f'../derivatives/fs_stats/data-cortical_type-{atlas}_measure-{measure}_hemi-{hemi}.tsv'
+                f = f'{fss_dir}/data-cortical_type-{atlas}_measure-{measure}_hemi-{hemi}.tsv'
                 df = pd.read_csv(f, sep='\t', index_col=0)
                 df.index = df.index.rename('participant_id')
                 df = df.reset_index()
@@ -87,7 +88,7 @@ for atlas in fsname2atlas['cortical'].keys():
                 
         df = pd.concat(dfs, axis=1)
         df = df.loc[:, ~df.columns.duplicated()].dropna()        
-        d_out = f'../derivatives/fs_stats/{sub}'
+        d_out = f'{fss_dir}/{sub}'
         if not op.isdir(d_out):
             os.makedirs(d_out)
 
@@ -105,7 +106,7 @@ for atlas in fsname2atlas['subcortical'].keys():
         for hemi in ('lh', 'rh'):
             i = 0
             for measure in ['mean', 'volume']:
-                f = f'../derivatives/fs_stats/data-subcortical_type-{atlas}_measure-{measure}_hemi-both.tsv'
+                f = f'{fss_dir}/data-subcortical_type-{atlas}_measure-{measure}_hemi-both.tsv'
                 df = pd.read_csv(f, sep='\t', index_col=0)
                 df.index = df.index.rename('participant_id')
                 df = df.reset_index()
@@ -128,7 +129,7 @@ for atlas in fsname2atlas['subcortical'].keys():
                 
         df = pd.concat(dfs, axis=1)
         df = df.loc[:, ~df.columns.duplicated()].dropna()        
-        d_out = f'../derivatives/fs_stats/{sub}'
+        d_out = f'{fss_dir}/{sub}'
         if not op.isdir(d_out):
             os.makedirs(d_out)
 
